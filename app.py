@@ -52,7 +52,29 @@ def retrieve_context(question, chunks, limit=4):
         scored_chunks.append((score, chunk))
 
     scored_chunks.sort(key=lambda item: item[0], reverse=True)
-    return [chunk for score, chunk in scored_chunks[:limit] if score > 0]
+    selected = []
+    selected_sources = set()
+
+    # Prefer one relevant chunk from each page so multi-page questions are covered.
+    for score, chunk in scored_chunks:
+        if score == 0 or chunk["source"] in selected_sources:
+            continue
+        selected.append(chunk)
+        selected_sources.add(chunk["source"])
+        if len(selected) == limit:
+            return selected
+
+    # If few terms matched, still provide representative chunks rather than
+    # pretending that only the matching page was searched.
+    for _, chunk in scored_chunks:
+        if chunk["source"] in selected_sources:
+            continue
+        selected.append(chunk)
+        selected_sources.add(chunk["source"])
+        if len(selected) == limit:
+            break
+
+    return selected
 
 
 uploaded_files = st.file_uploader(
