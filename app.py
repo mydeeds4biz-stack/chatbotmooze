@@ -1,8 +1,8 @@
 from io import BytesIO
+import re
 
 import streamlit as st
 import google.generativeai as genai
-import numpy as np
 from pypdf import PdfReader
 
 
@@ -42,23 +42,16 @@ def extract_pdf_chunks(file_bytes, file_name):
     return chunks
 
 
-def embed_text(text, task_type):
-    result = genai.embed_content(
-        model="models/gemini-embedding-001",
-        content=text,
-        task_type=task_type,
-    )
-    return np.array(result["embedding"], dtype=np.float32)
-
-
 def retrieve_context(question, chunks, limit=4):
-    question_embedding = embed_text(question, "retrieval_query")
-    chunk_embeddings = np.array(
-        [embed_text(chunk["text"], "retrieval_document") for chunk in chunks]
-    )
-    scores = chunk_embeddings @ question_embedding
-    best_indexes = np.argsort(scores)[-limit:][::-1]
-    return [chunks[index] for index in best_indexes]
+    question_terms = set(re.findall(r"\b[a-zA-Z0-9]{3,}\b", question.lower()))
+    scored_chunks = []
+    for chunk in chunks:
+        chunk_terms = set(re.findall(r"\b[a-zA-Z0-9]{3,}\b", chunk["text"].lower()))
+        score = len(question_terms & chunk_terms)
+        scored_chunks.append((score, chunk))
+
+    scored_chunks.sort(key=lambda item: item[0], reverse=True)
+    return [chunk for score, chunk in scored_chunks[:limit] if score > 0]
 
 
 uploaded_files = st.file_uploader(
