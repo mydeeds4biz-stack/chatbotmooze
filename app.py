@@ -44,7 +44,7 @@ def extract_pdf_chunks(file_bytes, file_name):
 
 def embed_text(text, task_type):
     result = genai.embed_content(
-        model="models/embedding-001",
+        model="models/gemini-embedding-001",
         content=text,
         task_type=task_type,
     )
