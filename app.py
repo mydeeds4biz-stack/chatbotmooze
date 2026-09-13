@@ -3,6 +3,7 @@ import re
 
 import streamlit as st
 import google.generativeai as genai
+from google.api_core.exceptions import ResourceExhausted
 from pypdf import PdfReader
 
 
@@ -91,7 +92,7 @@ if prompt:
     else:
         retrieved_chunks = retrieve_context(prompt, document_chunks)
         context = "\n\n".join(
-            f"Source: {chunk['source']}\n{chunk['text']}"
+            f"Source: {chunk['source']}\n{chunk['text'][:1000]}"
             for chunk in retrieved_chunks
         )
         rag_prompt = f"""Answer the question using only the document context below.
@@ -104,8 +105,15 @@ Document context:
 Question:
 {prompt}
 """
-        response = model.generate_content(rag_prompt)
-        answer = response.text
+        try:
+            response = model.generate_content(rag_prompt)
+            answer = response.text
+        except ResourceExhausted:
+            answer = (
+                "Gemini's API quota has been reached. Please wait for the quota "
+                "to reset or use a Gemini API key with available billing/quota."
+            )
+            st.warning(answer)
 
     with st.chat_message("assistant"):
         st.markdown(answer)
